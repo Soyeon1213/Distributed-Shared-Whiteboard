@@ -1,0 +1,67 @@
+import javax.swing.*;
+import java.rmi.Naming;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+
+public class CreateWhiteBoard {
+    private int port;
+    private Registry registry;
+    private RemoteInterfaceImpl server;
+
+    public CreateWhiteBoard(String serverIP, int port, String username) throws Exception {
+        this.port = port;
+        start(serverIP);
+
+        server.newUser(username);
+
+        // Create the manager GUI
+        ManagerGUI managerGUI = new ManagerGUI(server, username);
+        managerGUI.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        managerGUI.pack();
+        managerGUI.setVisible(true);
+
+        // Sync the manager GUI
+        while(true) {
+            Thread.sleep(100);
+            managerGUI.sync();
+        }
+    }
+
+    private void start(String serverIP) {
+        // Create the whiteboard server
+        try {
+            server = new RemoteInterfaceImpl();
+            registry = LocateRegistry.createRegistry(port); // 로컬 레지스트리 생성
+            Naming.rebind("rmi://" + serverIP + ":" + port + "/WhiteBoard", server); // Naming.rebind 사용
+            server.setBoardCreated(true);
+            System.out.println("WhiteBoard is ready to start on port " + port);
+        } catch (RemoteException e) {
+            showErrorAndExit("Error creating whiteboard server: " + e.getMessage());
+        } catch (Exception e) {
+            showErrorAndExit("Error binding whiteboard server: " + e.getMessage());
+        }
+    }
+
+    protected void showErrorAndExit(String message) {
+        System.out.println(message);
+        JOptionPane.showMessageDialog(null, message, "Connection Error", JOptionPane.ERROR_MESSAGE);
+        System.exit(1);
+    }
+
+    public static void main(String[] args) {
+        if (args.length < 3) {
+            System.out.println("Usage: java CreateWhiteBoard <serverIPAddress> <serverPort> <username>");
+            return;
+        }
+        String IPAddress = args[0];
+        int port = Integer.parseInt(args[1]);
+        String username = args[2];
+
+        try {
+            CreateWhiteBoard client = new CreateWhiteBoard(IPAddress, port, username);
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
+        }
+    }
+}
